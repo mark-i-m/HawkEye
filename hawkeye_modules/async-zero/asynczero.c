@@ -4,7 +4,11 @@
 #include <linux/mm.h>
 #include <linux/delay.h>
 #include <linux/highmem.h>
+#include <linux/kthread.h>
 #include <asm/page_64.h>
+
+static struct task_struct *asynczero_task = NULL;
+static volatile bool asynczero_should_stop = false;
 
 int sleep = 1000;
 module_param(sleep, int, 0);
@@ -122,13 +126,13 @@ static void zero_fill_zone_pages(struct zone *zone)
 	msleep(sleep);
 }
 
-static int zero_pages_async(void)
+static int asynczero_do_work(void *data)
 {
 	struct zone *zone;
 
 	pages_zeroed = 0;
 	/* loop forever to check for zeroing opportunity */
-	while (true) {
+	while (!asynczero_should_stop) {
 		for_each_zone(zone) {
 			if (!populated_zone(zone) || skip_zone(zone))
 				continue;
@@ -142,13 +146,28 @@ static int zero_pages_async(void)
 
 int init_module(void)
 {
-	zero_pages_async();
+	int err;
+
+	asynczero_should_stop = false;
+	asynczero_task = kthread_run(asynczero_do_work, NULL, "kasynczerod");
+
+	if (IS_ERR(asynczero_task)) {
+		err = PTR_ERR(asynczero_task);
+		asynczero_task = NULL;
+		return err;
+	}
+
 	return 0;
 }
 
 void cleanup_module(void)
 {
-	printk(KERN_INFO"Exiting from zeroing loop\n");
+	if (asynczero_task) {
+		asynczero_should_stop = true;
+		kthread_stop(asynczero_task);
+	}
+
+	printk(KERN_INFO"asynczero: exiting\n");
 }
 
 MODULE_LICENSE("GPL");
