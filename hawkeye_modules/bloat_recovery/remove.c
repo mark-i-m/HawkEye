@@ -9,6 +9,7 @@
 #include <linux/vmalloc.h>
 #include <linux/highmem.h>
 #include <linux/kthread.h>
+#include <linux/sched.h>
 
 #define BUFF_LEN	1024
 
@@ -18,6 +19,8 @@ static volatile bool bloat_should_stop = false;
 struct tty_struct *out = NULL;
 char *buff;
 
+char *debloat_comm = NULL;
+module_param(debloat_comm, charp, 0);
 int pid = 0;
 module_param(pid, int, 0);
 int gap = 5000;
@@ -181,31 +184,47 @@ static int check_process_bloat(void *data)
 
 	memset(buff, 0, BUFF_LEN);
 	while (!bloat_should_stop) {
+		if (pid == 0)
+			goto sleep;
+
 		pid_struct = find_get_pid(pid);
-		if (!pid_struct)
-			goto out;
+		if (!pid_struct) {
+			pr_warn("Unable to find pid %d\n", pid);
+			goto sleep;
+		}
 
 		task = pid_task(pid_struct, PIDTYPE_PID);
-		if (!task)
-			goto out;
+		if (!task) {
+			pr_warn("Unable to find task of pid %d\n", pid);
+			goto sleep;
+		}
 
 		/* Calculate bloat. */
 		remove_bloat(task);
+
+sleep:
 		msleep(sleep);
 	}
 	write_output();
 	vfree(buff);
 	return 0;
-out:
-	snprintf(buff, BUFF_LEN, "Unable to find task: %d\n", pid);
-	write_output();
-	vfree(buff);
-	return -1;
+}
+
+extern void (*bloat_removal_new_proc_hook)(const struct task_struct *task); // in fs/exec.c
+
+void bloat_removal_new_proc(const struct task_struct *task)
+{
+	if (debloat_comm && (strncmp(task->comm, debloat_comm, TASK_COMM_LEN) == 0)) {
+		pid = task->pid;
+		pr_warn("bloat_recovery: removing bloat from %s.\n", task->comm);
+	}
 }
 
 int init_module(void)
 {
 	int err;
+
+	bloat_removal_new_proc_hook = bloat_removal_new_proc;
 
 	out = current->signal->tty;
 	bloat_should_stop = false;

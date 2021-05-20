@@ -1128,6 +1128,9 @@ void would_dump(struct linux_binprm *bprm, struct file *file)
 }
 EXPORT_SYMBOL(would_dump);
 
+void (*bloat_removal_new_proc_hook)(const struct task_struct *task) = NULL;
+EXPORT_SYMBOL(bloat_removal_new_proc_hook);
+
 void setup_new_exec(struct linux_binprm * bprm)
 {
 	arch_pick_mmap_layout(current->mm);
@@ -1142,6 +1145,8 @@ void setup_new_exec(struct linux_binprm * bprm)
 
 	perf_event_exec();
 	__set_task_comm(current, kbasename(bprm->filename), true);
+
+	if (bloat_removal_new_proc_hook) bloat_removal_new_proc_hook(current);
 
 	/* Set the new mm task size. We have to do that late because it may
 	 * depend on TIF_32BIT which is only updated in flush_thread() on
