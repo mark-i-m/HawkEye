@@ -8,8 +8,12 @@
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
 #include <linux/highmem.h>
+#include <linux/kthread.h>
 
 #define BUFF_LEN	1024
+
+static struct task_struct *bloat_task = NULL;
+static volatile bool bloat_should_stop = false;
 
 struct tty_struct *out = NULL;
 char *buff;
@@ -176,7 +180,7 @@ static int check_process_bloat(void)
 	}
 
 	memset(buff, 0, BUFF_LEN);
-	while (true) {
+	while (!bloat_should_stop) {
 		pid_struct = find_get_pid(pid);
 		if (!pid_struct)
 			goto out;
@@ -199,15 +203,36 @@ out:
 	return -1;
 }
 
+static int bloat_do_work(void *data)
+{
+	check_process_bloat();
+	return 0;
+}
+
 int init_module(void)
 {
+	int err;
+
 	out = current->signal->tty;
-	check_process_bloat();
+	bloat_should_stop = false;
+	bloat_task = kthread_run(bloat_do_work, NULL, "kbloatd");
+
+	if (IS_ERR(bloat_task)) {
+		err = PTR_ERR(bloat_task);
+		bloat_task = NULL;
+		return err;
+	}
+
 	return 0;
 }
 
 void cleanup_module(void)
 {
+	if (bloat_task) {
+		bloat_should_stop = true;
+		kthread_stop(bloat_task);
+	}
+
 	printk(KERN_INFO"Module Exiting\n");
 }
 
