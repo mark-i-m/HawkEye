@@ -162,7 +162,7 @@ out:
 	return  false;
 }
 
-static int check_process_bloat(void)
+static int check_process_bloat(void *data)
 {
 	struct task_struct *task = NULL;
 	struct pid *pid_struct = NULL;
@@ -203,19 +203,13 @@ out:
 	return -1;
 }
 
-static int bloat_do_work(void *data)
-{
-	check_process_bloat();
-	return 0;
-}
-
 int init_module(void)
 {
 	int err;
 
 	out = current->signal->tty;
 	bloat_should_stop = false;
-	bloat_task = kthread_run(bloat_do_work, NULL, "kbloatd");
+	bloat_task = kthread_run(check_process_bloat, NULL, "kbloatd");
 
 	if (IS_ERR(bloat_task)) {
 		err = PTR_ERR(bloat_task);
