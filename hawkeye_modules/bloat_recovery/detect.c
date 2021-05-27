@@ -11,17 +11,17 @@
 
 #define BUFF_LEN	1024
 
-struct tty_struct *out = NULL;
-char *buff;
+static struct tty_struct *out = NULL;
+static char *buff;
 
-int pid = 0;
+static int pid = 0;
 module_param(pid, int, 0);
-int gap = 5000;
+static int gap = 5000;
 module_param(gap, int, 0);
-int sleep = 5000;
+static int sleep = 5000;
 module_param(sleep, int, 0);
 
-unsigned long distance = 0;
+static unsigned long distance = 0;
 
 struct page *follow_page_custom(struct vm_area_struct *vma,
 		unsigned long addr, unsigned int foll_flags);

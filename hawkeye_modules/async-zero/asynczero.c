@@ -10,14 +10,14 @@
 static struct task_struct *asynczero_task = NULL;
 static volatile bool asynczero_should_stop = false;
 
-int sleep = 1000;
+static int sleep = 1000;
 module_param(sleep, int, 0);
-int count = 10;
+static int count = 10;
 module_param(count, int, 0);
 
 /* clear the largest order blocks in the buddy allocator */
-int zero_fill_order = MAX_ORDER - 1;
-unsigned long pages_zeroed;
+static int zero_fill_order = MAX_ORDER - 1;
+static unsigned long pages_zeroed;
 
 static inline bool skip_zone(struct zone *zone)
 {
@@ -156,6 +156,8 @@ int init_module(void)
 		asynczero_task = NULL;
 		return err;
 	}
+
+	printk(KERN_INFO"asynczero: started\n");
 
 	return 0;
 }
