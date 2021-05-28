@@ -15,11 +15,11 @@ static struct tty_struct *out = NULL;
 static char *buff;
 
 static int pid = 0;
-module_param(pid, int, 0);
+module_param(pid, int, 0644);
 static int gap = 5000;
-module_param(gap, int, 0);
+module_param(gap, int, 0644);
 static int sleep = 5000;
-module_param(sleep, int, 0);
+module_param(sleep, int, 0644);
 
 static unsigned long distance = 0;
 

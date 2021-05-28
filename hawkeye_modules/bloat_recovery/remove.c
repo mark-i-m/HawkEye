@@ -22,11 +22,11 @@ char *buff;
 char *debloat_comm = NULL;
 module_param(debloat_comm, charp, 0);
 int pid = 0;
-module_param(pid, int, 0);
+module_param(pid, int, 0644);
 int gap = 5000;
-module_param(gap, int, 0);
+module_param(gap, int, 0644);
 int sleep = 120000;
-module_param(sleep, int, 0);
+module_param(sleep, int, 0644);
 
 unsigned long distance = 0;
 

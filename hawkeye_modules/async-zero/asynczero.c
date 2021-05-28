@@ -11,9 +11,9 @@ static struct task_struct *asynczero_task = NULL;
 static volatile bool asynczero_should_stop = false;
 
 static int sleep = 1000;
-module_param(sleep, int, 0);
+module_param(sleep, int, 0644);
 static int count = 10;
-module_param(count, int, 0);
+module_param(count, int, 0644);
 
 /* clear the largest order blocks in the buddy allocator */
 static int zero_fill_order = MAX_ORDER - 1;
@@ -88,7 +88,7 @@ static void zero_fill_zone_pages(struct zone *zone)
 	unsigned long flags;
 	unsigned long retries = 0;
 
-	while (retries < 100) {
+	while (retries < 100 && !asynczero_should_stop) {
 		/* remove one page with the lock held */
 		spin_lock_irqsave(&zone->lock, flags);
 		area = &(zone->free_area[zero_fill_order]);
