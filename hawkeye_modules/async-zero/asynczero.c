@@ -17,7 +17,8 @@ module_param(count, int, 0644);
 
 /* clear the largest order blocks in the buddy allocator */
 static int zero_fill_order = MAX_ORDER - 1;
-static unsigned long pages_zeroed;
+static unsigned long pages_zeroed = 0;
+module_param(pages_zeroed, ulong, 0444);
 
 static inline bool skip_zone(struct zone *zone)
 {
@@ -130,7 +131,6 @@ static int asynczero_do_work(void *data)
 {
 	struct zone *zone;
 
-	pages_zeroed = 0;
 	/* loop forever to check for zeroing opportunity */
 	while (!asynczero_should_stop) {
 		for_each_zone(zone) {
