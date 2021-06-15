@@ -16,9 +16,6 @@
 static struct task_struct *bloat_task = NULL;
 static volatile bool bloat_should_stop = false;
 
-struct tty_struct *out = NULL;
-char *buff;
-
 char *debloat_comm = NULL;
 module_param(debloat_comm, charp, 0);
 int pid = 0;
@@ -35,23 +32,6 @@ struct page *follow_page_custom(struct vm_area_struct *vma,
 		unsigned long addr, unsigned int foll_flags);
 void zap_page_range(struct vm_area_struct *vma, unsigned long start,
                 unsigned long size, struct zap_details *details);
-
-static inline void write_output(void)
-{
-	out->driver->ops->write(out, buff, strlen(buff));
-	out->driver->ops->write(out, "\015\012", 2);
-}
-
-static inline void write_output_nonewline(void)
-{
-	out->driver->ops->write(out, buff, strlen(buff));
-}
-
-static void print_recovery_info(unsigned long nr_to_free, unsigned long nr_recovered)
-{
-	snprintf(buff, BUFF_LEN, "target: %ld recovered: %ld", nr_to_free, nr_recovered);
-	write_output();
-}
 
 static unsigned long count_pages_to_free(void)
 {
@@ -125,8 +105,10 @@ static bool remove_bloat(struct task_struct *task)
 	unsigned long start, end, addr;
 
 	mm = get_task_mm(task);
-	if (!mm)
-		goto out;
+	if (!mm) {
+		pr_warn("Unable to locate task mm for pid: %d\n", task->pid);
+		return false;
+	}
 
 	nr_to_free = count_pages_to_free();
 	/* traverse the list of all vma regions */
@@ -156,13 +138,8 @@ static bool remove_bloat(struct task_struct *task)
 	}
 inner_break:
 	mmput(mm);
-	print_recovery_info(nr_to_free, nr_recovered);
+	pr_warn("target: %ld recovered: %ld\n", nr_to_free, nr_recovered);
 	return true;
-
-out:
-	snprintf(buff, BUFF_LEN, "Unable to locate task mm for pid: %d", task->pid);
-	write_output();
-	return  false;
 }
 
 static int check_process_bloat(void *data)
@@ -170,19 +147,6 @@ static int check_process_bloat(void *data)
 	struct task_struct *task = NULL;
 	struct pid *pid_struct = NULL;
 
-	/*
-	 * This is a one time operation. Hence, not performance critical.
-	 * Moreover, we may need to allocate large buffer than kmalloc can
-	 * provide. Hence, it is safe to use vmalloc here.
-	 */
-	buff = vmalloc(BUFF_LEN);
-	if (!buff) {
-		snprintf(buff, BUFF_LEN, "Unable to allocate vmalloc buffer");
-		write_output();
-		return -ENOMEM;
-	}
-
-	memset(buff, 0, BUFF_LEN);
 	while (!bloat_should_stop) {
 		if (pid == 0)
 			goto sleep;
@@ -205,8 +169,6 @@ static int check_process_bloat(void *data)
 sleep:
 		msleep(sleep);
 	}
-	write_output();
-	vfree(buff);
 	return 0;
 }
 
@@ -226,7 +188,6 @@ int init_module(void)
 
 	bloat_removal_new_proc_hook = bloat_removal_new_proc;
 
-	out = current->signal->tty;
 	bloat_should_stop = false;
 	bloat_task = kthread_run(check_process_bloat, NULL, "kbloatd");
 
