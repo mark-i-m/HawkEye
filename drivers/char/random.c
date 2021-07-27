@@ -1818,6 +1818,15 @@ unsigned int get_random_int(void)
 }
 EXPORT_SYMBOL(get_random_int);
 
+u64 get_random_u64(void)
+{
+	u64 hi = (u64)get_random_int();
+	u64 lo = (u64)get_random_int();
+
+	return (hi << 32) | lo;
+}
+EXPORT_SYMBOL(get_random_u64);
+
 /*
  * randomize_range() returns a start address such that
  *
